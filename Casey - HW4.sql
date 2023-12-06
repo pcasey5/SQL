@@ -1,0 +1,109 @@
+--Paul Casey
+
+-- Question 1
+ALTER TABLE LOST.TOUR
+ALTER COLUMN Tour_ID DECIMAL(3,0) NOT NULL;
+
+DELETE FROM LOST.TOUR
+WHERE TOUR_ID = 15 OR TOUR_ID = 21 OR TOUR_ID = 24;
+
+INSERT INTO LOST.TOUR (TOUR_ID, TOUR_NAME, TOUR_LENGTH, TOUR_FEE)
+VALUES (15, 'Grand Drinks', 4.5, 120.00),
+	   (21, 'East Eastside', 2.5, 35.75),
+	   (24, 'Sunset Splendor', 2.0, 45.00);
+
+ALTER TABLE LOST.TOUR
+ADD CONSTRAINT PK_TOUR_Tour_ID PRIMARY KEY (Tour_ID);
+
+--Question 2
+ALTER TABLE LOST.OUTING
+ADD CONSTRAINT CHK_OUTING_MAXCAPACITY CHECK (Out_MaxCapacity >= 1 AND Out_MaxCapacity <= 100);
+
+--Question 3
+CREATE TABLE LOST.LOCATION (
+Loc_Num DECIMAL(10, 0) PRIMARY KEY,
+Loc_Name VARCHAR(50) NOT NULL,
+Loc_Type VARCHAR(20) CONSTRAINT CHK_LOCATION_Loc_Type CHECK (Loc_Type IN ('PUBLIC', 'PRIVATE'))
+);
+
+--Question 4
+INSERT INTO LOST.LOCATION (Loc_Num, Loc_Name, Loc_Type)
+VALUES
+(1, 'Grand Beach Outlook', 'PUBLIC'),
+(2, 'Purdy Pavilion', 'PRIVATE'),
+(3, 'Reach Point', NULL);
+
+--Question 5
+CREATE TABLE LOST.VISITS (
+Loc_Num DECIMAL(10, 0),
+Tour_ID DECIMAL(3, 0),
+Visit_Duration INT,
+CONSTRAINT VISITS_Loc_Num_Tour_ID_PK PRIMARY KEY (Loc_Num, Tour_ID),
+CONSTRAINT VISITS_Loc_Num_FK FOREIGN KEY (Loc_Num) REFERENCES LOST.LOCATION,
+CONSTRAINT VISITS_Tour_ID_FK FOREIGN KEY (Tour_ID) REFERENCES LOST.TOUR
+);
+
+--Question 6
+INSERT INTO LOST.VISITS (Loc_Num, Tour_ID, Visit_Duration) VALUES
+(1, 5, 30),
+(3, 5, 90),
+(1, 20, 15);
+
+--Question 7
+BEGIN TRANSACTION FIRST_TRANSACTION;
+
+--Question 8
+UPDATE LOST.OUTING
+SET G_EMPNUM = (SELECT G_EMPNUM FROM LOST.GUIDE WHERE G_LName = 'Lane' AND G_FName = 'Tyson')
+WHERE OUT_ID = 1163;
+
+--Question 9
+DELETE FROM LOST.GUIDE
+WHERE G_FNAME = 'Patty' AND G_LName = 'Minter'
+
+--Question 10
+COMMIT TRANSACTION FIRST_TRANSACTION; 
+
+--Question 11
+BEGIN TRANSACTION SECOND_TRANSACTION;
+
+--Question 12
+UPDATE LOST.CLIENT
+SET CLIENT_PHONE = '323-2828'
+WHERE CLIENT_NUM = 750;
+
+--Question 13
+DELETE FROM LOST.REGISTER
+WHERE CLIENT_NUM = 750;
+
+
+--Question 14
+ROLLBACK TRANSACTION SECOND_TRANSACTION;
+
+--Question 15
+CREATE PROCEDURE spRegisterClient
+@ClientNum DECIMAL(10,0),
+@OutID DECIMAL(12,0),
+@Fee DECIMAL(6, 2)
+AS
+DECLARE @Out_MaxCapacity DECIMAL(5,0), @RegisteredClients INT;
+BEGIN
+    SELECT @Out_MaxCapacity = Out_MaxCapacity FROM LOST.OUTING WHERE Out_ID = @OutID;
+    SELECT @RegisteredClients = COUNT(*) FROM LOST.REGISTER WHERE Out_ID = @OutID;
+    IF @RegisteredClients >= @Out_MaxCapacity
+		BEGIN
+			PRINT 'The outing is already full.';
+		END
+    ELSE
+		BEGIN
+			INSERT INTO LOST.REGISTER (Client_Num, Out_ID, Reg_Fee, Reg_Date)
+			VALUES (@ClientNum, @OutID, @Fee, GETDATE());
+			DECLARE @ClientName VARCHAR(50), @TourName VARCHAR(50), @OutDate DATE;
+			SELECT @ClientName = (CLIENT_FNAME + ' ' + CLIENT_LNAME) FROM LOST.CLIENT WHERE Client_Num = @ClientNum;
+			SELECT @TourName = T.Tour_Name, @OutDate = O.Out_Date FROM LOST.OUTING O INNER JOIN LOST.TOUR T ON O.TOUR_ID = T.TOUR_ID WHERE O.Out_ID = @OutID;
+			PRINT @ClientName + ' successfully added to the ' + @TourName + ' tour outing scheduled for ' + FORMAT(@OutDate, 'MM/dd/yyyy') + '.';
+		END
+END;
+
+
+EXEC sp_help 'lost.tour'
